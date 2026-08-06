@@ -31,9 +31,7 @@ jobs:
       run: chmod +x android/gradlew
 
     - name: Build APK (Debug)
-      run: |
-        cd android
-        ./gradlew assembleDebug --stacktrace
+      run: cd android && ./gradlew assembleDebug --stacktrace
 
     - name: Upload APK as artifact
       if: success()
@@ -51,41 +49,6 @@ jobs:
         tag_name: v${{ github.run_number }}
         draft: false
         prerelease: false
-        body: |
-          ## APK compilado automaticamente ✅
-          
-          **Build:** ${{ github.run_number }}
-          **Branch:** ${{ github.ref }}
-          **Commit:** ${{ github.sha }}
-          **Data:** ${{ github.event.head_commit.timestamp }}
-          
-          ### 📥 Como instalar:
-          
-          #### Opção 1: Via USB (recomendado)
-```bash
-          adb install app-debug.apk
-```
-          
-          #### Opção 2: Copiar e tocar
-          1. Baixe `app-debug.apk`
-          2. Copie para o celular (WhatsApp, email, etc)
-          3. Abra o arquivo no celular
-          4. Toque em "Instalar"
-          
-          ### 🔧 Requisitos
-          - Android 7.0+ (API 24)
-          - Permissões: Localização, Overlay, Notificações
-          - Conexão WiFi ou dados
-          
-          ### 🧪 Testar
-          1. Abra o app e clique "Iniciar Monitoramento"
-          2. Veja a localização em `web/family-locator.html`
-          3. Segure o botão 🚨 por 3s para ativar emergência
+        body: "APK compilado automaticamente. Build: ${{ github.run_number }}"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Notify on failure
-      if: failure()
-      run: |
-        echo "❌ Build falhou!"
-        echo "Verifique os logs acima para detalhes"
