@@ -1,0 +1,64 @@
+# Android
+.gradle/
+.idea/
+*.iml
+build/
+local.properties
+*.apk
+*.aar
+*.jks
+*.keystore
+bin/
+gen/
+out/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Gradle
+gradle/
+gradlew
+gradlew.bat
+.gradle
+
+# IDE
+.vscode/
+*.log
+*.iws
+*.ipr
+
+# Secrets
+Config.kt.local
+local.properties
+gradle.properties
+keystore.properties
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Node (se usar para build tools)
+node_modules/
+npm-debug.log
+
+# Kotlin
+out/
+*.class
+*.jar
+
+# BuildCache
+.buildOutputDirectory/

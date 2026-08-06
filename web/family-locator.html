@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Localizador Familiar</title>
+  
+  <!-- Leaflet Maps -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+  
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f3f4f6;
+    }
+    
+    #container {
+      display: flex;
+      height: 100vh;
+    }
+    
+    #map {
+      flex: 1;
+      background: #f0f0f0;
+    }
+    
+    .sidebar {
+      width: 380px;
+      background: #fff;
+      border-left: 1px solid #e5e7eb;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.08);
+    }
+    
+    .sidebar h2 {
+      font-size: 20px;
+      color: #1f2937;
+      margin-bottom: 20px;
+    }
+    
+    .user-list {
+      margin-bottom: 24px;
+    }
+    
+    .user-label {
+      display: block;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    
+    .user-btn {
+      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      border: 2px solid #e5e7eb;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    
+    .user-btn:hover {
+      border-color: #3b82f6;
+      background: #f0f9ff;
+    }
+    
+    .user-btn.active {
+      background: #f0f9ff;
+      border-color: #3b82f6;
+    }
+    
+    .user-btn strong {
+      display: block;
+      color: #1f2937;
+    }
+    
+    .user-coords {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    
+    .user-time {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+    
+    .route-section, .route-result {
+      padding: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .route-result {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+    
+    .route-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    
+    .route-btn {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 6px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .route-btn:hover {
+      background: #2563eb;
+    }
+    
+    .route-result strong {
+      color: #92400e;
+    }
+    
+    .route-info {
+      font-size: 13px;
+      color: #92400e;
+      margin-top: 8px;
+    }
+    
+    .route-info div {
+      margin: 4px 0;
+    }
+    
+    .emergency-btn {
+      width: 100%;
+      padding: 14px;
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    
+    .emergency-btn:hover {
+      background: #b91c1c;
+    }
+    
+    .emergency-btn.active {
+      background: #ef4444;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
+    }
+    
+    .error {
+      padding: 12px;
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      color: #991b1b;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="map"></div>
+    <div class="sidebar" id="sidebar">
+      <h2>🗺️ Localização Família</h2>
+      <div id="content">
+        <div class="loading">Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://jqgpxnqexyoauzrgbyxa.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_1Mn10P2iSvuTTaakP_mP8g_4GiLc46O';
+    const FAMILY_GROUP_ID = '518f8b77-2fb4-498d-aed7-12a2df9933d2';
+
+    let supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const userColors = {
+      'Marcel': '#FF6B6B',
+      'Camila': '#4ECDC4',
+      'Amábile': '#FFE66D',
+      'Amille': '#95E1D3',
+      'Noah': '#A8D8EA',
+      'Edmara': '#FFA07A'
+    };
+
+    let map, users = [], locations = {}, selectedUser = null, markers = {}, selectedRoute = null, emergency = false;
+
+    // Inicializar mapa
+    function initMap() {
+      map = L.map('map').setView([-15.789, -56.173], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19
+      }).addTo(map);
+    }
+
+    // Carregar usuários
+    async function loadUsers() {
+      const { data } = await supabaseClient
+        .from('users')
+        .select('id, phone, name')
+        .eq('family_group_id', FAMILY_GROUP_ID);
+      users = data || [];
+    }
+
+    // Carregar localizações
+    async function loadLocations() {
+      const { data } = await supabaseClient
+        .from('locations')
+        .select('*')
+        .eq('family_group_id', FAMILY_GROUP_ID)
+        .gt('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false });
+
+      const grouped = {};
+      data?.forEach(loc => {
+        if (!grouped[loc.user_id] || new Date(loc.created_at) > new Date(grouped[loc.user_id].created_at)) {
+          grouped[loc.user_id] = loc;
+        }
+      });
+      locations = grouped;
+
+      // Atualizar marcadores
+      users.forEach(user => {
+        const loc = locations[user.id];
+        if (loc) {
+          const color = userColors[user.name] || '#888';
+          if (markers[user.id]) {
+            markers[user.id].setLatLng([loc.latitude, loc.longitude]);
+          } else {
+            const marker = L.circleMarker([loc.latitude, loc.longitude], {
+              radius: 10,
+              fillColor: color,
+              color: '#fff',
+              weight: 2,
+              opacity: 1,
+              fillOpacity: 0.8
+            }).addTo(map);
+            marker.bindPopup(`<strong>${user.name}</strong><br/>${new Date(loc.created_at).toLocaleTimeString()}`);
+            markers[user.id] = marker;
+          }
+        }
+      });
+    }
+
+    // Calcular rota
+    async function getRoute(fromUserId, toUserId) {
+      const fromLoc = locations[fromUserId];
+      const toLoc = locations[toUserId];
+
+      if (!fromLoc || !toLoc) {
+        alert('Localização não disponível');
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${fromLoc.longitude},${fromLoc.latitude};${toLoc.longitude},${toLoc.latitude}?overview=full&geometries=geojson`
+        );
+        const data = await res.json();
+
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          selectedRoute = {
+            distance: (route.distance / 1000).toFixed(2),
+            duration: Math.round(route.duration / 60),
+            geometry: route.geometry
+          };
+
+          // Desenhar rota
+          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+          L.polyline(coords, { color: '#3B82F6', weight: 3, dashArray: '5, 5' }).addTo(map);
+          
+          render();
+        }
+      } catch (err) {
+        console.error('Erro na rota:', err);
+      }
+    }
+
+    // Ativar emergência
+    async function toggleEmergency() {
+      if (!selectedUser) {
+        alert('Selecione uma pessoa primeiro');
+        return;
+      }
+
+      emergency = !emergency;
+
+      if (emergency) {
+        await supabaseClient.from('emergency_sessions').insert({
+          user_id: selectedUser.id,
+          family_group_id: FAMILY_GROUP_ID,
+          expires_at: new Date(Date.now() + 5 * 60000).toISOString()
+        });
+        alert(`🚨 EMERGÊNCIA ativada para ${selectedUser.name}`);
+      } else {
+        alert('Emergência desativada');
+      }
+
+      render();
+    }
+
+    // Renderizar interface
+    function render() {
+      const toUser = users.find(u => u.id === selectedUser?.id);
+      
+      let html = `
+        <div class="user-list">
+          <label class="user-label">Selecione uma pessoa:</label>
+      `;
+
+      users.forEach(user => {
+        const loc = locations[user.id];
+        const time = loc ? new Date(loc.created_at).toLocaleTimeString() : '-';
+        const active = selectedUser?.id === user.id ? 'active' : '';
+        html += `
+          <button class="user-btn ${active}" onclick="selectUser('${user.id}')">
+            <strong>${user.name}</strong>
+            <div class="user-coords">${loc ? loc.latitude.toFixed(4) + ', ' + loc.longitude.toFixed(4) : 'Sem localização'}</div>
+            <div class="user-time">${time}</div>
+          </button>
+        `;
+      });
+
+      html += '</div>';
+
+      if (selectedUser) {
+        html += `
+          <div class="route-section">
+            <label class="route-label">Ir ao encontro de:</label>
+        `;
+
+        users.filter(u => u.id !== selectedUser.id).forEach(user => {
+          html += `
+            <button class="route-btn" onclick="getRoute('${selectedUser.id}', '${user.id}')">
+              → ${user.name}
+            </button>
+          `;
+        });
+
+        html += '</div>';
+
+        if (selectedRoute) {
+          html += `
+            <div class="route-result">
+              <strong>📍 Rota calculada:</strong>
+              <div class="route-info">
+                <div>Distância: <strong>${selectedRoute.distance} km</strong></div>
+                <div>Tempo: <strong>${selectedRoute.duration} min</strong></div>
+              </div>
+            </div>
+          `;
+        }
+
+        html += `
+          <button class="emergency-btn ${emergency ? 'active' : ''}" onclick="toggleEmergency()">
+            ${emergency ? '🚨 EMERGÊNCIA ATIVA' : '🔴 ATIVAR EMERGÊNCIA'}
+          </button>
+        `;
+      }
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // Selecionar usuário
+    function selectUser(userId) {
+      selectedUser = users.find(u => u.id === userId);
+      selectedRoute = null;
+      emergency = false;
+      render();
+    }
+
+    // Inicializar
+    async function init() {
+      initMap();
+      await loadUsers();
+      await loadLocations();
+      render();
+
+      // Atualizar a cada 15 segundos
+      setInterval(async () => {
+        await loadLocations();
+        render();
+      }, 15000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
